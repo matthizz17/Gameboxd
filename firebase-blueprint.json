@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User profile information and preferences",
+      "type": "object",
+      "properties": {
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "bio": { "type": "string" },
+        "favoriteGames": { "type": "array", "items": { "type": "string" } },
+        "favoriteReviews": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayName", "createdAt"]
+    },
+    "Game": {
+      "title": "Game",
+      "description": "Information about a video game",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "releaseDate": { "type": "string" },
+        "developer": { "type": "string" },
+        "publisher": { "type": "string" },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "coverUrl": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" }
+      },
+      "required": ["title"]
+    },
+    "Review": {
+      "title": "Game Review",
+      "description": "A user's review of a specific game",
+      "type": "object",
+      "properties": {
+        "gameId": { "type": "string" },
+        "gameTitle": { "type": "string" },
+        "gameCoverUrl": { "type": "string" },
+        "userId": { "type": "string" },
+        "userDisplayName": { "type": "string" },
+        "userPhotoURL": { "type": "string" },
+        "rating": { "type": "number" },
+        "content": { "type": "string" },
+        "pcSpecs": {
+          "type": "object",
+          "properties": {
+            "cpu": { "type": "string" },
+            "gpu": { "type": "string" },
+            "ram": { "type": "string" },
+            "os": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "likesCount": { "type": "number" }
+      },
+      "required": ["gameId", "userId", "rating", "createdAt"]
+    },
+    "Follow": {
+      "title": "User Follow Relationship",
+      "description": "Maps followers and following",
+      "type": "object",
+      "properties": {
+        "followerId": { "type": "string" },
+        "followingId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["followerId", "followingId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/games/{gameId}": {
+      "schema": "Game",
+      "description": "Games database"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Game reviews"
+    },
+    "/followers/{followId}": {
+      "schema": "Follow",
+      "description": "User following relationships indexed by followerId_followingId"
+    }
+  }
+}

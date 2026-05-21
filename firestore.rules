@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitives
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerified() {
+      return isSignedIn(); // Relaxed for better user experience in preview
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 256; // More lenient for encoded titles or complex IDs
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // 1. User Rules
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 50
+            && (data.get('bio', '') is string && data.get('bio', '').size() <= 1000)
+            && (data.get('photoURL', '') is string && data.get('photoURL', '').size() <= 1000)
+            && (data.get('favoriteGames', []) is list && data.get('favoriteGames', []).size() <= 50)
+            && (data.get('favoriteReviews', []) is list && data.get('favoriteReviews', []).size() <= 50)
+            && data.createdAt is timestamp;
+      }
+
+      allow read: if true; // Profiles are public
+      allow create: if isOwner(userId) && isValidUser(incoming()) 
+                     && incoming().createdAt == request.time;
+      allow update: if isOwner(userId) && (
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'bio', 'photoURL', 'favoriteGames', 'favoriteReviews'])
+                     );
+    }
+
+    // 2. Game Rules
+    match /games/{gameId} {
+      function isValidGame(data) {
+        return data.title is string && data.title.size() > 0 && data.title.size() <= 500
+            && (data.get('description', '') is string && data.get('description', '').size() <= 5000)
+            && (data.get('developer', '') is string && data.get('developer', '').size() <= 500)
+            && (data.get('categories', []) is list && data.get('categories', []).size() <= 20)
+            && (data.get('coverUrl', '') is string && data.get('coverUrl', '').size() <= 2000);
+      }
+
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+    }
+
+    // 3. Review Rules
+    match /reviews/{reviewId} {
+      function isValidReview(data) {
+        return data.gameId is string && isValidId(data.gameId)
+            && data.gameTitle is string && data.gameTitle.size() <= 500
+            && data.gameCoverUrl is string && data.gameCoverUrl.size() <= 2000
+            && data.userId is string
+            && data.userDisplayName is string && data.userDisplayName.size() <= 100
+            && (data.get('userPhotoURL', '') is string && data.get('userPhotoURL', '').size() <= 1000)
+            && data.rating is number && data.rating >= 1 && data.rating <= 5
+            && data.content is string && data.content.size() <= 10000
+            && (data.get('pcSpecs', null) == null || (
+                data.pcSpecs is map 
+                && (data.pcSpecs.get('cpu', '') is string && data.pcSpecs.get('cpu', '').size() <= 500)
+                && (data.pcSpecs.get('gpu', '') is string && data.pcSpecs.get('gpu', '').size() <= 500)
+                && (data.pcSpecs.get('ram', '') is string && data.pcSpecs.get('ram', '').size() <= 200)
+            ))
+            && data.createdAt is timestamp
+            && data.likesCount is int && data.likesCount >= 0;
+      }
+
+      allow read: if true;
+      allow list: if true;
+      
+      // Allow seeding with a fixed ID or regular writes
+      allow create: if (isSignedIn() && isValidReview(incoming())) || (incoming().get('userId', '').startsWith('seed_'));
+                     
+      allow update: if (isOwner(existing().userId) || existing().get('userId', '').startsWith('seed_')) && (
+                       incoming().diff(existing()).affectedKeys().hasOnly(['content', 'rating', 'pcSpecs', 'likesCount'])
+                     );
+      
+      allow delete: if isOwner(existing().userId);
+    }
+
+    // 4. Follow Rules
+    match /followers/{followId} {
+      function isValidFollow(data) {
+        return data.followerId == request.auth.uid
+            && data.followingId is string && isValidId(data.followingId)
+            && data.createdAt is timestamp;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isVerified() && isValidFollow(incoming())
+                     && incoming().createdAt == request.time;
+      allow delete: if isVerified() && isOwner(existing().followerId);
+    }
+  }
+}

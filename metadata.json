@@ -1,0 +1,6 @@
+{
+  "name": "Gameboxd",
+  "description": "A game review platform inspired by Letterboxd. Discover, review, and track your favorite games. Share your PC specs and see what your friends are playing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
